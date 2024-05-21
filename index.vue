@@ -1,31 +1,126 @@
 <script setup>
-import { inject, reactive, onMounted, getCurrentInstance } from "vue";
-import { InitCustom } from "./scripts/index";
+import { reactive, onMounted } from "vue";
 import "@melloware/coloris/dist/coloris.css";
 import Coloris from "@melloware/coloris";
+import { ref, watch } from 'vue';
 
-const toast = inject("moshaToast");
-const swal = inject("$swal");
+let action = ref("none")
+let only = ref("all")
+let stock = ref("ever")
+let tag = ref([])
+let title = ref("");
 
-const state = reactive({
-  loading: false,
-  action: "none",
-  only: "all",
-  stock: "ever",
-  tag: [],
-});
+let image = reactive({
+  file: "",
+  url: "#000000",
+})
 
-const defaultImage = "teste.png";
-const logo_app = "logo.png";
-window.logo_app = logo_app;
+const defaultImage = "../assets/logo.png";
+const types = [
+  { title: "Texto", value: "title" }, { title: "Imagem", value: "image" }, { title: "Icone", value: "icon" }, { title: "Icone e Texto", value: "text_icon" }
+]
+const icons = [{ title: "Grande", value: "big" }, { title: "Médio", value: "mid" }, { title: "Pequeno", value: "small" },]
+
+const tagPosition = [
+  { title: "Dentro da Imagem", value: "insideImage" }, { title: "Acima da Imagem", value: "beforeImage" }, { title: "Acima do titulo", value: "beforeTitle" }, { title: "Após o preço", value: "afterPrice" }, { title: "Após o botão de compra", value: "afterBuy" }
+]
+const rounding = [
+  { title: "Pouco Arredondado", value: "4px" }, { title: "Muito Arredondado", value: "30px" }, { title: "Quadrado", value: "0" }
+]
+const tagSize = [
+  { title: "Minimo Possível", value: "Fit-content" }, { title: "Máximo Possível", value: "100%" }
+]
+const actions = [
+  { value: 'edit', name: 'Editar' },
+  { value: 'delete', name: 'Deletar' },
+];
+const visitors = ref([
+  { name: 'Visitor 1', value: 'visitor1' },
+  { name: 'Visitor 2', value: 'visitor2' },
+]);
+
+
+let editableText;
+let background = reactive({
+  color: "#f0f0f0",
+  text: "#000000",
+  icon: "#000000"
+})
+let border = reactive({
+  thickness: 1,
+  color: "#000000"
+})
+let recommended = reactive({
+  size: false,
+  format: false
+})
+let alignment = reactive({
+  vertical: {
+    x: 0,
+    y: 0,
+    z: 0
+  },
+  horizontal: {
+    x: 0,
+    y: 0,
+    z: 0
+  }
+})
+let fontSize = ref(13)
+
+let wppNumber = ref("");
+let message = ref("");
+let link = ref("");
+
+const editText = (text) => {
+  editableText = text.target.textContent
+  return editableText;
+}
+
+const onFileChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    image.file = file
+    image.url = URL.createObjectURL(file);
+
+  }
+};
+
 
 function getDescription(action, type) {
   return type?.find(({ value }) => value === action)?.["description"] || "";
 }
 
+watch(image, () => {
+  const file = image.file;
+  let width;
+  let height;
+  if (file) {
+    const img = new Image();
+    img.onload = function () {
+      width = this.naturalHeight;
+      height = this.naturalWidth
+      console.log(height, width, extension)
+      if (width <= 200 && height <= 200) {
+        recommended.size = true
+      }
+      else {
+        recommended.size = false;
+      }
+      if (extension == "png" || extension == "jpg" || extension == "gif" || extension == "jpeg") {
+        recommended.extension = true
+      }
+      else {
+        recommended.extension = false
+      }
+    };
+    img.src = URL.createObjectURL(file);
+  }
+  const extension = image.file.name.split('.').pop();
+});
+
+
 onMounted(async () => {
-  const { refs } = getCurrentInstance();
-  const custom = new InitCustom(refs, toast, state, swal);
 
   Coloris.init();
   Coloris({
@@ -37,8 +132,9 @@ onMounted(async () => {
     closeLabel: "Fechar",
   });
 
-  custom.init(state["tag"]);
 });
+
+
 </script>
 
 <template>
@@ -46,29 +142,17 @@ onMounted(async () => {
     <section class="settings">
       <ul class="nav nav-pills" id="pills-tab" role="tablist">
         <li class="nav-item" role="presentation">
-          <button
-            class="nav-link active"
-            data-bs-toggle="pill"
-            data-bs-target="#settings"
-          >
+          <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#settings">
             Exibição
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button
-            class="nav-link"
-            data-bs-toggle="pill"
-            data-bs-target="#custom"
-          >
+          <button class="nav-link" data-bs-toggle="pill">
             Customização
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button
-            class="nav-link"
-            data-bs-toggle="pill"
-            data-bs-target="#actions"
-          >
+          <button class="nav-link" data-bs-toggle="pill">
             Ação
           </button>
         </li>
@@ -78,63 +162,48 @@ onMounted(async () => {
           <div class="inputs cScroll">
             <div class="input">
               <label>Titulo</label>
-              <input
-                ref="change_title"
-                type="text"
-                placeholder="Ex: Novo Template"
-              />
+              <input v-model="title" type="text" placeholder="Ex: Novo Template" />
               <small> Identificação da tag internamente no sistema </small>
             </div>
             <hr />
             <div class="input">
               <label>Tipo</label>
-              <select ref="type">
-                <option value="text" selected>Texto</option>
-                <option value="image">Imagem</option>
-                <option value="icon">Icone</option>
-                <option value="text_icon">Icone e Texto</option>
+              <select>
+                <option v-for="({ title, value }, key) in types" :key="key" :value="value" selected>{{ title }}</option>
               </select>
             </div>
-            <div class="input" ref="icon" data-field="change_icon">
+            <div class="input" data-field="change_icon">
               <label>Ícone</label>
               <select>
-                <option
-                  :value="icon"
-                  :selected="key === 0"
-                  v-for="({ name, icon }, key) in []"
-                >
-                  {{ name }}
+                <option :selected="key === 0" v-for="({ title, value }, key) in icons" :value="value" :key="key">
+                  {{ title }}
                 </option>
               </select>
             </div>
             <div class="input" data-field="change_text">
               <label>Texto da Tag</label>
-              <div contenteditable="true" ref="texto_da_tag">Exemplo</div>
+              <div contenteditable="true" @input="editText">Exemplo</div>
             </div>
-            <div
-              class="input file"
-              data-field="change_image"
-              ref="change_image"
-            >
+            <div class="input file" data-field="change_image" ref="change_image">
               <label>Imagem</label>
               <div>
-                <span id="selected_image" class="hidden">
+                <span id="selected_image">
                   <div ref="exclude_image">
                     <i class="bx bx-trash"></i>
                   </div>
-                  <img :src="logo_app" alt="app" />
+                  <img :src="image.url" :style="{ maxWidth: '250px', maxHeight: '250px' }" />
                 </span>
                 <label for="change_image">
-                  <input :id="'change_image'" type="file" />
+                  <input @change="onFileChange" type="file" />
                   <i class="bx bx-images"></i>
                   Selecione uma Imagem
                 </label>
                 <ul>
-                  <li>
+                  <li :style="{ color: recommended.size ? 'green' : 'red' }">
                     <strong>Tamanho Recomendado:</strong>
                     200x200
                   </li>
-                  <li>
+                  <li :style="{ color: recommended.extension ? 'green' : 'red' }">
                     <strong>Formatos Aceitos:</strong>
                     png, jpg, gif e jpeg
                   </li>
@@ -147,55 +216,45 @@ onMounted(async () => {
           <div class="inputs cScroll">
             <div class="input">
               <label>Posição da Tag</label>
-              <select ref="position_tag">
-                <option value="insideImage" selected>Dentro da Imagem</option>
-                <option value="beforeImage">Acima da Imagem</option>
-                <option value="beforeTitle">Acima do titulo</option>
-                <option value="afterPrice">Após o preço</option>
-                <option value="afterBuy">Após o botão de compra</option>
+              <select>
+                <option :selected="key === 0" v-for="({ title, value }, key) in tagPosition" :value="value" :key="key">
+                  {{ title }}
+                </option>
               </select>
             </div>
             <div class="input" :data-field="'change_radius'">
               <label>Arredondamento</label>
               <select ref="rounded">
-                <option value="4px" selected>Pouco Arredondado</option>
-                <option value="30px">Muito Arredondado</option>
-                <option value="0">Quadrado</option>
+                <option :selected="key === 0" v-for="({ title, value }, key) in rounding" :value="value" :key="key">
+                  {{ title }}
+                </option>
               </select>
             </div>
             <div class="input" :data-field="'change_width'">
               <label>Tamanho da Tag</label>
-              <select ref="width">
-                <option value="fit-content" selected>Mínimo Possível</option>
-                <option value="100%">Máximo Possível</option>
+              <select>
+                <option :selected="key === 0" v-for="({ title, value }, key) in tagSize" :value="value" :key="key">
+                  {{ title }}
+                </option>
               </select>
             </div>
             <hr />
-            <div
-              class="input"
-              ref="background_color"
-              data-type="backgroundColor"
-            >
+            <div class="input" ref="background_color" data-type="backgroundColor">
               <label>Cor do Fundo</label>
               <div class="input-picker">
-                <input class="coloris" value="#f0f0f0" />
+                <input class="coloris" v-model=background.color />
               </div>
             </div>
             <div class="input" ref="text_color" data-type="color">
               <label>Cor do Texto</label>
               <div class="input-picker">
-                <input class="coloris" value="#000000" />
+                <input class="coloris" v-model=background.text />
               </div>
             </div>
-            <div
-              class="input"
-              ref="icon_color"
-              data-type="fill"
-              data-field="icon_color"
-            >
+            <div class="input" ref="icon_color" data-type="fill" data-field="icon_color">
               <label>Cor do Ícone</label>
               <div class="input-picker">
-                <input class="coloris" value="#000000" />
+                <input class="coloris" v-model=background.icon />
               </div>
             </div>
             <hr />
@@ -210,15 +269,15 @@ onMounted(async () => {
             </div>
             <div class="input" ref="border_width" data-type="borderWidth">
               <span class="input-title">
-                <label>Espessura da borda</label>
-                <small>1</small>
+                <label>Espessura da borda </label>
+                <small>{{ border.thickness }}</small>
               </span>
-              <input type="range" min="1" max="6" value="1" />
+              <input type="range" min="1" max="6" v-model=border.thickness />
             </div>
             <div class="input" ref="border_color" data-type="borderColor">
               <label>Cor da Borda</label>
               <div class="input-picker">
-                <input class="coloris" value="#000000" />
+                <input class="coloris" v-model=border.color />
               </div>
             </div>
             <hr />
@@ -226,13 +285,19 @@ onMounted(async () => {
               <label>Alinhamento Horizontal</label>
               <ul>
                 <li :data-event="'flex-start'">
-                  <i class="bx bx-align-left"></i>
+                  <i class="bx bx-align-left">
+                    <input type="number" v-model="alignment.horizontal.x">
+                  </i>
                 </li>
                 <li :data-event="'center'">
-                  <i class="bx bx-align-middle"></i>
+                  <i class="bx bx-align-middle">
+                    <input type="number" v-model="alignment.horizontal.x">
+                  </i>
                 </li>
                 <li :data-event="'flex-end'" class="active">
-                  <i class="bx bx-align-right"></i>
+                  <i class="bx bx-align-right">
+                    <input type="number" v-model="alignment.horizontal.x">
+                  </i>
                 </li>
               </ul>
             </div>
@@ -240,84 +305,75 @@ onMounted(async () => {
               <label>Alinhamento Vertical</label>
               <ul>
                 <li :data-event="'flex-end'">
-                  <i class="bx bx-vertical-bottom"></i>
+                  <i class="bx bx-vertical-bottom">
+                    <input type="number" v-model="alignment.vertical.x">
+                  </i>
                 </li>
                 <li :data-event="'center'">
-                  <i class="bx bx-reflect-horizontal"></i>
+                  <i class="bx bx-reflect-horizontal">
+                    <input type="number" v-model="alignment.vertical.y">
+                  </i>
                 </li>
                 <li :data-event="'flex-start'" class="active">
-                  <i class="bx bx-vertical-top"></i>
+                  <i class="bx bx-vertical-top">
+                    <input type="number" v-model="alignment.vertical.z">
+                  </i>
                 </li>
               </ul>
             </div>
             <hr />
-            <div class="input" ref="fontSize">
+            <div class="input">
               <span class="input-title">
-                <label>Tamanho da Fonte</label>
-                <small>13</small>
+                <label>Tamanho da Fonte </label>
+                <small>{{ fontSize }}</small>
               </span>
-              <input type="range" min="8" max="32" value="11" />
+              <input type="range" min="8" max="32" v-model="fontSize" />
             </div>
           </div>
         </div>
         <div class="tab-pane fade" id="actions">
           <div class="inputs cScroll">
-            <div class="input" ref="action">
+            <div class="input">
               <label>Ação</label>
-              <select v-model="state.action">
-                <option :value="value" v-for="{ name, value } in []">
+              <select v-model="action">
+                <option :key="key" :value="value" v-for="({ name, value }, key) in actions">
                   {{ name }}
                 </option>
               </select>
             </div>
             <div class="input" data-action="whatsapp" ref="action_phone">
               <label>Número do Whatsapp</label>
-              <input
-                type="text"
-                placeholder="Ex: 73 99999-9999"
-                v-mask="['(##) ####-####', '(##) #####-####']"
-              />
+              <input type="text" placeholder="Ex: 73 99999-9999" v-mask="['(##) ####-####', '(##) #####-####']"
+                v-model="wppNumber" />
             </div>
-            <div
-              class="input"
-              data-action="whatsapp"
-              ref="action_phone_message"
-            >
+            <div class="input" data-action="whatsapp" ref="action_phone_message">
               <label>Texto da Mensagem</label>
-              <input
-                type="text"
-                placeholder="Ex: Poderia me informar sobre o produto?"
-              />
+              <input type="text" placeholder="Ex: Poderia me informar sobre o produto?" v-model="message" />
             </div>
-            <div
-              class="input"
-              data-action="openPage"
-              ref="action_link"
-              data-field="input"
-            >
+            <div class="input" data-action="openPage" ref="action_link" data-field="input">
               <label>Link da Página</label>
-              <input type="text" placeholder="Ex: site.com" />
+              <input type="text" placeholder="Ex: site.com" v-model="link" />
             </div>
-            <div class="alert" v-if="getDescription(state.action, [])">
-              {{ getDescription(state.action, []) }}
+            <div class="alert" v-if="getDescription(action, actions)">
+              {{ getDescription(action, actions) }}
             </div>
             <hr />
-            <div class="input" ref="only" data-field="select">
+            <div class="input" data-field="select">
               <label>Filtrar Visitantes</label>
-              <select v-model="state.only">
-                <option :value="value" v-for="{ name, value } in []">
+              <select v-model="only">
+                <option :value="value" :key="key" v-for="({ name, value }, key) in visitors">
                   {{ name }}
                 </option>
               </select>
             </div>
-            <div class="alert" v-if="getDescription(state.only, [])">
-              {{ getDescription(state.only, []) }}
+            <div class="alert" v-if="getDescription(only, visitors)">
+              {{ getDescription(only, visitors) }}
             </div>
             <hr />
             <div class="input" ref="stock" data-field="select">
               <label>Filtrar Estoque</label>
-              <select v-model="state.stock">
-                <option :value="value" v-for="{ name, value } in []">
+              <select v-model="stock">
+                <option :key="key" :value="value" v-for="({ name, value }, key) in []">
                   {{ name }}
                 </option>
               </select>
@@ -332,8 +388,8 @@ onMounted(async () => {
         <span :data-store="'product-item-image'">
           <img :src="defaultImage" alt="produto" />
           <div ref="tag_container" class="label">
-            <span ref="tag"></span>
-            <img ref="tag_image" :src="logo_app" alt="app" />
+            <span>{{ tag }}</span>
+            <img :src="logo_app" alt="app" />
           </div>
         </span>
         <div class="description" :data-store="'product-item-info'">
